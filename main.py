@@ -5,58 +5,126 @@ https://blog.quantopian.com/markowitz-portfolio-optimization-2/
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+import cvxopt as opt
+from cvxopt import blas, solvers
+import pandas as pd
 
 
-
-def calculate_efficient_frontier(w, S, q, R):
+def optimal_portfolio(returns):
     """
-    For convenience, let's use this notation
-    https://en.wikipedia.org/wiki/Modern_portfolio_theory
-
-    - w is a vector of portfolio weights and sum(w) == 1
-        (The weights can be negative, which means investors can short a security.);
-    - S is the covariance matrix for the returns on the assets
-    - q >= 0 is risk tolerance
-        - q == 0 is risk averse
-        - q == Inf is situatiaed maximally on the frontier
-    - R is a vector of expected returns
+    @returns numpy.maxtrix, one row per product, each value in the row represents one reading (price for a timestamp)
     """
-    pass
+    n = len(returns)
+    returns = np.asmatrix(returns)
+
+    N = 100
+    mus = [10**(5.0 * t/N - 1.0) for t in range(N)]
+
+    # Convert to cvxopt matrices
+    S = opt.matrix(np.cov(returns))
+    pbar = opt.matrix(np.mean(returns, axis=1))
+
+    # Create constraint matrices
+    G = -opt.matrix(np.eye(n))   # negative n x n identity matrix
+    h = opt.matrix(0.0, (n ,1))
+    A = opt.matrix(1.0, (1, n))
+    b = opt.matrix(1.0)
+
+    # Calculate efficient frontier weights using quadratic programming
+    portfolios = [solvers.qp(mu*S, -pbar, G, h, A, b)['x']
+                  for mu in mus]
+    ## CALCULATE RISKS AND RETURNS FOR FRONTIER
+    returns = [blas.dot(pbar, x) for x in portfolios]
+    risks = [np.sqrt(blas.dot(x, S*x)) for x in portfolios]
+    ## CALCULATE THE 2ND DEGREE POLYNOMIAL OF THE FRONTIER CURVE
+    m1 = np.polyfit(returns, risks, 2)
+    x1 = np.sqrt(m1[2] / m1[0])
+    # CALCULATE THE OPTIMAL PORTFOLIO
+    wt = solvers.qp(opt.matrix(x1 * S), -pbar, G, h, A, b)['x']
+    return np.asarray(wt), returns, risks
+
+def rand_weights(n):
+    ''' Produces n random weights that sum to 1 '''
+    k = np.random.rand(n)
+    return k / sum(k)
+
+
+def random_portfolio(returns):
+    '''
+    Returns the mean and standard deviation of returns for a random portfolio
+    '''
+
+    p = np.asmatrix(np.mean(returns, axis=1))
+    w = np.asmatrix(rand_weights(returns.shape[0]))
+    C = np.asmatrix(np.cov(returns))
+
+    mu = w * p.T
+    sigma = np.sqrt(w * C * w.T)
+
+    # This recursion reduces outliers to keep plots pretty
+    if sigma > 2:
+        return random_portfolio(returns)
+    return mu, sigma
+
 
 
 def test1():
-    w = np.array([.3, .3, .4])
-    S = np.matrix(
-        [1, .3, .03],
-        [.3, 1, .02],
-        [.03, .02, 1],
-    )
-    q = 0
-    R = np.array([5, 2, 10])
+    """
+    Produces 500 random portfolios of (same) 4 assets each and shows the efficient frontier
+    """
+    np.random.seed(123)
 
-    result = calculate_efficient_frontier(w, S, q, R)
-    print result
+    ## NUMBER OF ASSETS
+    n_assets = 4
+
+    ## NUMBER OF OBSERVATIONS
+    n_obs = 1000
+
+    return_vec = np.random.randn(n_assets, n_obs)
+
+    n_portfolios = 500
+    means, stds = np.column_stack([
+        random_portfolio(return_vec)
+        for _ in xrange(n_portfolios)
+    ])
+
+    weights, returns, risks = optimal_portfolio(return_vec)
+
+    plt.plot(stds, means, 'o')
+    plt.ylabel('mean')
+    plt.xlabel('std')
+    plt.plot(risks, returns, 'y-o')
+    plt.plot(risks, returns)
+    plt.show()
 
 
 def test2():
     """
-    http://www.calculatinginvestor.com/2011/06/07/efficient-frontier-1/
+    Using some real data now
     """
+    pass
 
-    w = np.array([.25, .25, .25, .25])
-    S = np.matrix(
-        [185, 86.5, 80, 20],
-        [86.5, 196, 76, 13.5],
-        [80, 76, 411, -19],
-        [20, 13.5, -19, 25],
-    )
-    q = 0
-    R = np.array([14, 12, 15, 7])
+    # from zipline.utils.factory import load_bars_from_yahoo
+    # end = pd.Timestamp.utcnow()
+    # start = end - 2500 * pd.tseries.offsets.BDay()
+
+    # data = load_bars_from_yahoo(stocks=['IBM', 'GLD', 'XOM', 'AAPL',
+    #                                     'MSFT', 'TLT', 'SHY'],
+    #                             start=start, end=end)
+
+
+def init():
+    # Turn off progress printing
+    solvers.options['show_progress'] = False
 
 
 def main():
+    init()
+
     test1()
     test2()
+
 
 
 if __name__ == "__main__":
