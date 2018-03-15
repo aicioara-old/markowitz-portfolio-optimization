@@ -4,11 +4,16 @@
 https://blog.quantopian.com/markowitz-portfolio-optimization-2/
 """
 
+# STD
+import json
+
+# 3rd party
 import numpy as np
 import matplotlib.pyplot as plt
 import cvxopt as opt
 from cvxopt import blas, solvers
 import pandas as pd
+import requests
 
 
 def optimal_portfolio(returns):
@@ -99,10 +104,24 @@ def test1():
     plt.show()
 
 
+
+def get_stock_returns(tickerName):
+    query = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={}&apikey=demo".format(tickerName)
+    raw_data = requests.get(query)
+    data = json.loads(raw_data)["Time Series (Daily)"]
+
+    returns = []
+    for date in data:
+        close_price = data[date]["4. close"]
+        returns.append(close_price)
+    return returns
+
+
 def test2():
     """
     Using some real data now
     """
+    print(get_stock_returns("MSFT"))
     pass
 
     # from zipline.utils.factory import load_bars_from_yahoo
@@ -122,7 +141,7 @@ def init():
 def main():
     init()
 
-    test1()
+    # test1()
     test2()
 
 
