@@ -15,6 +15,8 @@ from cvxopt import blas, solvers
 import pandas as pd
 import requests
 
+import logging
+
 
 def optimal_portfolio(returns):
     """
@@ -105,45 +107,46 @@ def test1():
 
 
 
-def get_stock_returns(tickerName):
-    query = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={}&apikey=demo".format(tickerName)
-    raw_data = requests.get(query)
-    data = json.loads(raw_data)["Time Series (Daily)"]
+def get_real_stock_returns(tickerName):
+    logging.info("Fetching {}".format(tickerName))
+    token = "XA10GXCF7339XGUG"
+    query = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={}&apikey={}".format(tickerName, token)
+    response = requests.get(query)
+    data = json.loads(response.content)["Time Series (Daily)"]
 
-    returns = []
-    for date in data:
-        close_price = data[date]["4. close"]
-        returns.append(close_price)
+    close_prices = [float(data[date]["4. close"]) for date in data]
+    returns = [today - yesterday for yesterday, today in zip(close_prices, close_prices[1:])]
     return returns
-
 
 def test2():
     """
     Using some real data now
     """
-    print(get_stock_returns("MSFT"))
-    pass
 
-    # from zipline.utils.factory import load_bars_from_yahoo
-    # end = pd.Timestamp.utcnow()
-    # start = end - 2500 * pd.tseries.offsets.BDay()
+    tickers = ['IBM', 'TSLA', 'GOOG', 'AAPL', 'MSFT']
+    stock_returns = np.matrix([get_real_stock_returns(ticker) for ticker in tickers])
 
-    # data = load_bars_from_yahoo(stocks=['IBM', 'GLD', 'XOM', 'AAPL',
-    #                                     'MSFT', 'TLT', 'SHY'],
-    #                             start=start, end=end)
+    weights, returns, risks = optimal_portfolio(stock_returns)
+
+    print weights
+
+    plt.ylabel('mean')
+    plt.xlabel('std')
+    plt.plot(risks, returns, 'y-o')
+    plt.plot(risks, returns)
+    plt.show()
 
 
 def init():
     # Turn off progress printing
     solvers.options['show_progress'] = False
-
+    logging.basicConfig(level=logging.INFO, format='%(relativeCreated)6d %(message)s')
 
 def main():
     init()
 
-    # test1()
+    test1()
     test2()
-
 
 
 if __name__ == "__main__":
