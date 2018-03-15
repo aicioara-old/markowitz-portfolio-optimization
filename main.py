@@ -20,7 +20,12 @@ import logging
 
 def optimal_portfolio(returns):
     """
-    @returns numpy.maxtrix, one row per product, each value in the row represents one reading (price for a timestamp)
+    @param returns numpy.maxtrix, one row per product, each value in the row represents one reading (price for a timestamp)
+
+    @returns (weights, returns, risks)
+        - weights weight of each asset in the portfolio
+        - returns expected return for a particular risk (y-axis on the efficient frontier axis)
+        - risks standard deviation for the portofolio (x-axis on the efficient frontier)
     """
     n = len(returns)
     returns = np.asmatrix(returns)
