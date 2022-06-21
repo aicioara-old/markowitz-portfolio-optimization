@@ -11,7 +11,7 @@ idna==2.6
 ipaddress==1.0.19
 kiwisolver==1.0.1
 matplotlib==2.2.0
-numpy==1.14.2
+numpy==1.22.0
 pandas==0.22.0
 pycparser==2.18
 pyOpenSSL==17.5.0
